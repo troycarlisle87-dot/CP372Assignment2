@@ -9,7 +9,7 @@ TYPE_ACK = 4
 HEADER_FORMAT = "!BIIH"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-def make_packet(packet_type,seq_num=0,ack_num=0,payload=""):
+def make_packet(packet_type,seq_num=0,ack_num=0,payload=b""):
     """
     Creates one complete UDP packet consisting of a header and payload.
     """
