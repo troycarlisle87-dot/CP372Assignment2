@@ -1,0 +1,70 @@
+SELECTIVE REPEAT PROTOCOL — BONUS OPTION A
+For context GBN represents Go-Back-N
+SR represents Selective Repeat
+Calc is short for Calculator/Calculations
+
+We chose bonus option A, our team replaced the required GBN protocol 
+with Selective Repeat using a single timer mechanism as requested.
+
+Our Selective Repeat implementation uses a sliding window,
+this will allow multiple packets to be sent before ACKs are received. 
+It also buffers valid out-of-order packets and retransmits only the missing packets
+instead of retransmitting the entire window.
+
+SENDER IMPLEMENTATION
+
+The sender maintains:
+* "base": the first unacknowledged packet in the current window
+* next_seq_num: the next packet ready to be sent
+* window_size: the maximum number of outstanding packets
+* acknowledged: tracks which packets have received ACKs
+* send_times: stores the most recent transmission time of each outstanding packet
+
+The sender transmits multiple packets while they are inside the current window.
+Each packet is acknowledged individually.
+
+When an ACK is received, only the matching packet is marked as acknowledged.
+The sender advances "base" only when the packet at "base", followed by any consecutive packets,
+has been acknowledged.
+
+To meet the single-timer requirement, the socket stops waiting for ACKs every 0.1 seconds.
+The sender then checks the stored timestamps of all outstanding packets.
+A packet is considered timed out after 1.0 second without an ACK, and only that packet is retransmitted.
+
+RECEIVER IMPLEMENTATION
+
+The receiver maintains:
+* receive_base: the first packet currently required
+* window_size: the size of the receiving window
+* packet_buffer: stores valid packets that arrive out of order
+
+The receiver accepts packets whose sequence numbers are inside the current receiving window and sends an individual ACK for each valid packet.
+
+If a packet arrives out of order, it is stored in the buffer instead of being discarded.
+The receiver waits for the missing packet before writing the buffered packets to the file in the correct order.
+
+Duplicate packets are not written twice. Instead, the receiver resends the corresponding ACK.
+Packets beyond the current receiving window are ignored.
+
+The receiver handles the following packet types:
+* FILE_START: creates the destination file
+* DATA: contains a portion of the transferred file
+* FILE_END: closes the file and completes the transfer
+* ACK: identifies an individually acknowledged sequence number
+
+SELECTIVE REPEAT EXAMPLE
+
+Assume the window size is four for our hypothetical:
+
+Sender sends: 0 1 2 3
+Suppose packet 1 is lost, while packets 0, 2, and 3 arrive.
+
+Receiver sends: ACK0 ACK2 ACK3
+
+The receiver buffers packets 2 and 3 because packet 1 is missing.
+After the one second timeout, the sender retransmits only packet 1.
+
+Sender retransmits:
+
+When packet 1 arrives, the receiver processes packets 1, 2, and 3 in order.
+This differs from GBN because packets 2 and 3 do not need to be retransmitted.
